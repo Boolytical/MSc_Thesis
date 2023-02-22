@@ -126,7 +126,7 @@ source_counts = future_map_dfr(normalization, function(normalization){
     source_counts = full_join(source_counts, count(MDS4, "Source"), by = "Source")
 
     # Generate the data for RF analysis
-    RF_Data = prepare_rf_data(MDS4, rarefaction_rate, environmental_variables)
+    RF_Data = prepare_rf_data(MDS4, environmental_variables)
 
     # Make the training and testing sets
     rand_train = sample(1:nrow(MDS4), size = nrow(MDS4) * 0.8)
