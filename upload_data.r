@@ -5,7 +5,7 @@
 #' @param rarefaction_rate A numerical value or NA. Specifies the rarefaction rate applied to the ASV reads.
 #'
 #' @return A data frame.
-data_upload=function(sources, taxalevel, rarefaction_rate, anonymous = TRUE){
+data_upload=function(sources, taxalevel, rarefaction_rate, anonymous = TRUE, samples = FALSE){
   # Upload the 16S data
   S16Data = upload_16S()
   
@@ -19,7 +19,7 @@ data_upload=function(sources, taxalevel, rarefaction_rate, anonymous = TRUE){
   # Merge 16S training data with metadata, take mean over replicates, and clean
   MDS3 = merge_16S_metadata(MDS2, MDataF)
   MDS4 = mean_of_replicates(MDS3, rarefaction_rate)
-  MDS5 = data_cleaning(MDS4, rarefaction_rate, anonymous)
+  MDS5 = data_cleaning(MDS4, rarefaction_rate, anonymous, samples)
   
   return(MDS5)
 }
@@ -309,8 +309,12 @@ mean_of_replicates=function(MDS3, rarefaction_rate){
 #Calls: NA
 #Job: Remove unneeded sites, rarefaction_rate, remove columns with zeroes,
 # rename the sources to full names, and anonymise.
-data_cleaning = function(MDS4, rarefaction_rate, anonymous){
+data_cleaning = function(MDS4, rarefaction_rate, anonymous, samples){
   message("Function: 'data_cleaning' start")
+  
+  # REMOVE THIS #
+  # Only to ensure no, 1170, 5244, 13493 use the same samples -> test rarefy difference
+  if(length(samples) > 1){MDS4 = MDS4[which(MDS4$SampleID %in% samples), ]}
   
   ## Rarefy the data set
   if (!is.na(rarefaction_rate)){

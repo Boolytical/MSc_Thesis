@@ -43,7 +43,8 @@ rarefaction_rate is needed to to set the random subsample size to give the expec
 environmental_variables is needed to include extra variables to train the RF model"
 ## For the data set (data) creation ##
 # Specify which sources to keep in the data set
-sources = c("Thorsten", "MeioMetBar", "Shraveena", "MOWI", "SSF", "VAW")
+# sources = c("Thorsten", "Shraveena", "MOWI", "MeioMetBar", "SSF", "VAW")
+sources = c("Thorsten", "Shraveena", "MOWI", "MeioMetBar")
 
 # Define the taxon specificity of the data set
 # taxalevel can be "Kingdom", "Phylum", "Class", Order", or "Family"
@@ -71,7 +72,7 @@ contains all the data obtained from all these sample sites."
 
 ## Rarefaction
 'Generate the rarefaction curves for the unrarefied data.'
-MDS4 = data_upload(sources, taxalevel, rarefaction_rate=NA)
+MDS4 = data_upload(sources, taxalevel, rarefaction_rate = NA)
 rarefaction(MDS4)
 
 ## Check for negative values in the data set ##
@@ -112,13 +113,21 @@ This can be set equal to false in the Build functions. "
 future::plan(multisession)
 
 # Test the different rarefaction rates
-normalization = c(1170, 5244, 13493, 14987, 50384, NA)
+# normalization = c(1170, 5244, 13493, 14987, 50384, NA)
+normalization = c(1170, 5244, 13493, NA)
+
+# Save sampleIDs that can reach 13493 read counts as "samples"
+rarefy_13493 = data_upload(sources, taxalevel, rarefaction_rate = 13493)
+samples = rarefy_13493$SampleID
+
+# Ensure the training uses the same data set
+rand_train = sample(1:nrow(rarefy_13493), size = nrow(rarefy_13493) * 0.8)
 
 source_counts = future_map_dfr(normalization, function(normalization){
     for (i in 1:length(normalization)){rarefaction_rate = as.numeric(normalization[i])}
 
     # Upload data
-    MDS4 = data_upload(sources, taxalevel, rarefaction_rate)
+    MDS4 = data_upload(sources, taxalevel, rarefaction_rate, samples = samples) # Set samples to FALSE if you want to rarefy over all samples
 
     # Count samples per source
     source_counts = data.frame(Source = unique(MDS4$Source),
@@ -127,13 +136,12 @@ source_counts = future_map_dfr(normalization, function(normalization){
 
     # Generate the data for RF analysis
     RF_Data = prepare_rf_data(MDS4, environmental_variables)
-
+ 
     # Make the training and testing sets
-    rand_train = sample(1:nrow(MDS4), size = nrow(MDS4) * 0.8)
     train = RF_Data[rand_train, ]
     test = MDS4[-rand_train, ]
 
-    # Build the RF algorithm
+    # Build the RF algorithmc
     RF = build_rf(train, sources, taxalevel, rarefaction_rate)
 
     # Make and plot the predictions on test data
@@ -152,16 +160,20 @@ write.csv(source_counts, file = paste("figures/source_counts_sources_", toString
 " Load the top models and make predictions on the new data to check accuracy."
 
 # Generate function to generate rarefied new test data and run plots
-test_newdata = function(rarefaction_rate, model){
+test_newdata = function(rarefaction_rate, model, samples = FALSE){
   sources = c("SSF", "VAW")
-  data = data_upload(sources, taxalevel, rarefaction_rate)
+  data = data_upload(sources, taxalevel, rarefaction_rate, samples = samples)
   plot_iqi_prediction(data, model, sources, taxalevel, rarefaction_rate)
 }
 
+# Select the required samples
+rarefy_13493_test = data_upload(sources, taxalevel, rarefaction_rate = 13493)
+samples_test = rarefy_13493_test$SampleID
+
 # Load all sources rarefaction 5244 model and make predictions
-load("figures/randomForest_models/Rarefy_5244_Sources_Thorsten, MeioMetBar, Shraveena, MOWI_TaxaLevel_Family.Rdata")
-test_newdata(5244, RF_final_reduced)
+load("figures/randomForest_models/Rarefy_1170_Sources_Thorsten, MeioMetBar, Shraveena, MOWI_TaxaLevel_Family_Scaling_FALSE.Rdata")
+test_newdata(NA, RF_final_reduced)
 
 # Load all sources except Thorsten rarefaction 13493 model and make predictions
-load("figures/randomForest_models/Rarefy_13493_Sources_MeioMetBar, Shraveena, MOWI_TaxaLevel_Family.Rdata")
+load("figures/randomForest_models/Rarefy_13493_Sources_MeioMetBar, Shraveena, MOWI_TaxaLevel_Family_Scaling_FALSE.Rdata")
 test_newdata(13493, RF_final_reduced)
